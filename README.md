@@ -143,7 +143,4 @@ MIT License - feel free to use this for your own fan projects!
 
 ---
 
-<p align="center">
-  Made with ❤️ by a Chikoo 🏏<br>
-  <b>RCB till I die!</b> 🔴🟡
-</p>
+MIT License - feel free to use this for your own fan projects!
