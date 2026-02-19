@@ -137,10 +137,6 @@ Want to contribute? Found a bug? Have a feature idea?
 
 ---
 
-## 📄 License
-
-MIT License - feel free to use this for your own fan projects!
-
----
-
-MIT License - feel free to use this for your own fan projects!
+<p align="center">
+  Made with ❤️ by a Chikoo 🏏<br>
+</p>
