@@ -6,8 +6,9 @@ import { usePathname } from "next/navigation"
 import { User, LogOut, Plus, Trophy, Home, X, Mail, Lock } from "lucide-react"
 import { auth, googleProvider } from "@/lib/firebase"
 import { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser } from "firebase/auth"
-import { COLORS, APP_NAME } from "@/lib/constants"
 import { cn } from "@/lib/utils"
+
+const APP_NAME = "KohliVerse"
 
 export default function Navbar() {
   const pathname = usePathname()
@@ -44,7 +45,6 @@ export default function Navbar() {
     setError("")
     setSubmitting(true)
 
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
       setError("Please enter a valid email address")
@@ -52,7 +52,6 @@ export default function Navbar() {
       return
     }
 
-    // Validate password
     if (password.length < 6) {
       setError("Password must be at least 6 characters")
       setSubmitting(false)
@@ -91,16 +90,13 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="sticky top-0 z-50 border-b" style={{ borderColor: COLORS.border, backgroundColor: COLORS.dark }}>
+      <nav className="sticky top-0 z-50 border-b border-[#2A2A2A] bg-[#0D0D0D]">
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <div
-              className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white"
-              style={{ backgroundColor: COLORS.primary }}
-            >
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white bg-[#E0301E]">
               KV
             </div>
-            <span className="font-bold text-xl" style={{ color: COLORS.primary }}>
+            <span className="font-bold text-xl text-[#E0301E]">
               {APP_NAME}
             </span>
           </Link>
@@ -115,11 +111,10 @@ export default function Navbar() {
                   href={link.href}
                   className={cn(
                     "flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-lg transition-colors",
-                    isActive ? "bg-opacity-20" : "hover:bg-opacity-10"
+                    isActive ? "bg-[#E0301E]/20" : "hover:bg-[#E0301E]/10"
                   )}
                   style={{
-                    backgroundColor: isActive ? COLORS.primary + "20" : "transparent",
-                    color: isActive ? COLORS.primary : COLORS.textSecondary
+                    color: isActive ? "#E0301E" : "#A0A0A0"
                   }}
                 >
                   <Icon size={18} />
@@ -131,8 +126,7 @@ export default function Navbar() {
             {user && (
               <Link
                 href="/submit"
-                className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors"
-                style={{ backgroundColor: COLORS.primary, color: "white" }}
+                className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors bg-[#E0301E] text-white"
               >
                 <Plus size={18} />
                 <span className="hidden sm:inline">Submit</span>
@@ -145,8 +139,7 @@ export default function Navbar() {
               <div className="flex items-center gap-2 sm:gap-3">
                 <Link
                   href={`/profile/${user.uid}`}
-                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden border-2 transition-colors"
-                  style={{ borderColor: COLORS.primary }}
+                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden border-2 border-[#E0301E]"
                 >
                   <img
                     src={user.photoURL || "/default-avatar.png"}
@@ -156,8 +149,7 @@ export default function Navbar() {
                 </Link>
                 <button
                   onClick={handleLogout}
-                  className="p-2 rounded-lg hover:bg-neutral-800 transition-colors"
-                  style={{ color: COLORS.textSecondary }}
+                  className="p-2 rounded-lg hover:bg-neutral-800 text-[#A0A0A0]"
                 >
                   <LogOut size={18} />
                 </button>
@@ -165,8 +157,7 @@ export default function Navbar() {
             ) : (
               <button
                 onClick={() => setShowLogin(true)}
-                className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors"
-                style={{ backgroundColor: COLORS.primary, color: "white" }}
+                className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors bg-[#E0301E] text-white"
               >
                 <User size={18} />
                 <span className="hidden sm:inline">Login</span>
@@ -176,21 +167,16 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* Login Modal */}
       {showLogin && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
-          <div
-            className="w-full max-w-md rounded-xl border p-6"
-            style={{ backgroundColor: COLORS.card, borderColor: COLORS.border }}
-          >
+          <div className="w-full max-w-md rounded-xl border border-[#2A2A2A] bg-[#1A1A1A] p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-white">
                 {isSignUp ? "Create Account" : "Welcome Back"}
               </h2>
               <button
                 onClick={() => setShowLogin(false)}
-                className="p-1 rounded-lg hover:bg-neutral-800"
-                style={{ color: COLORS.textSecondary }}
+                className="p-1 rounded-lg hover:bg-neutral-800 text-[#A0A0A0]"
               >
                 <X size={20} />
               </button>
@@ -200,13 +186,12 @@ export default function Navbar() {
               <div>
                 <label className="block text-sm text-white mb-1">Email</label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2" size={18} style={{ color: COLORS.textSecondary }} />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A0A0A0]" size={18} />
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 rounded-lg border bg-transparent text-white"
-                    style={{ borderColor: COLORS.border }}
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-[#2A2A2A] bg-transparent text-white placeholder-neutral-500"
                     placeholder="your@email.com"
                     required
                   />
@@ -215,13 +200,12 @@ export default function Navbar() {
               <div>
                 <label className="block text-sm text-white mb-1">Password</label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2" size={18} style={{ color: COLORS.textSecondary }} />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A0A0A0]" size={18} />
                   <input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 rounded-lg border bg-transparent text-white"
-                    style={{ borderColor: COLORS.border }}
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-[#2A2A2A] bg-transparent text-white placeholder-neutral-500"
                     placeholder="••••••••"
                     required
                   />
@@ -229,14 +213,13 @@ export default function Navbar() {
               </div>
 
               {error && (
-                <p className="text-sm" style={{ color: COLORS.primary }}>{error}</p>
+                <p className="text-sm text-[#E0301E]">{error}</p>
               )}
 
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
-                style={{ backgroundColor: COLORS.primary, color: "white" }}
+                className="w-full py-2 rounded-lg font-medium transition-colors disabled:opacity-50 bg-[#E0301E] text-white"
               >
                 {submitting ? "Please wait..." : isSignUp ? "Sign Up" : "Login"}
               </button>
@@ -244,28 +227,26 @@ export default function Navbar() {
 
             <div className="relative mb-4">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t" style={{ borderColor: COLORS.border }}></div>
+                <div className="w-full border-t border-[#2A2A2A]"></div>
               </div>
               <div className="relative flex justify-center text-xs">
-                <span className="px-2" style={{ backgroundColor: COLORS.card, color: COLORS.textSecondary }}>or</span>
+                <span className="px-2 bg-[#1A1A1A] text-[#A0A0A0]">or</span>
               </div>
             </div>
 
             <button
               onClick={handleGoogleLogin}
-              className="w-full py-2 rounded-lg font-medium border transition-colors flex items-center justify-center gap-2"
-              style={{ borderColor: COLORS.border, color: "white" }}
+              className="w-full py-2 rounded-lg font-medium border border-[#2A2A2A] transition-colors flex items-center justify-center gap-2 text-white"
             >
               <img src="https://www.google.com/favicon.ico" alt="Google" className="w-4 h-4" />
               Continue with Google
             </button>
 
-            <p className="text-center mt-4 text-sm" style={{ color: COLORS.textSecondary }}>
+            <p className="text-center mt-4 text-sm text-[#A0A0A0]">
               {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
               <button
                 onClick={() => { setIsSignUp(!isSignUp); setError("") }}
-                className="font-medium"
-                style={{ color: COLORS.primary }}
+                className="font-medium text-[#E0301E]"
               >
                 {isSignUp ? "Login" : "Sign Up"}
               </button>

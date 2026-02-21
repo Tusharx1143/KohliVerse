@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { ArrowBigUp, ArrowBigDown, MessageCircle, Share2 } from "lucide-react"
 import { Post } from "@/lib/types"
-import { COLORS } from "@/lib/constants"
 import { formatNumber, timeAgo } from "@/lib/utils"
 import { auth, db } from "@/lib/firebase"
 import { doc, updateDoc, increment, setDoc, deleteDoc, getDoc } from "firebase/firestore"
@@ -100,27 +99,20 @@ export default function VideoCard({ post }: VideoCardProps) {
   const isYoutube = post.platform === "youtube"
 
   return (
-    <div
-      className="rounded-xl overflow-hidden border"
-      style={{ backgroundColor: COLORS.card, borderColor: COLORS.border }}
-    >
+    <div className="rounded-xl overflow-hidden border border-[#2A2A2A] bg-[#1A1A1A]">
       <div className="flex flex-col sm:flex-row">
-        {/* Vote buttons - horizontal on mobile, vertical on desktop */}
-        <div
-          className="flex sm:flex-col items-center justify-center gap-2 sm:gap-1 p-2 sm:p-3 sm:w-12"
-          style={{ backgroundColor: COLORS.muted }}
-        >
+        <div className="flex sm:flex-col items-center justify-center gap-2 sm:gap-1 p-2 sm:p-3 sm:w-12 bg-[#2A2A2A]">
           <button
             onClick={() => handleVote("up")}
             disabled={!auth.currentUser || isVoting}
             className="p-1 rounded transition-colors disabled:opacity-50"
-            style={{ color: userVote === "up" ? COLORS.primary : COLORS.textSecondary }}
+            style={{ color: userVote === "up" ? "#E0301E" : "#A0A0A0" }}
           >
-            <ArrowBigUp size={24} fill={userVote === "up" ? COLORS.primary : "none"} />
+            <ArrowBigUp size={24} fill={userVote === "up" ? "#E0301E" : "none"} />
           </button>
           <span
             className="text-sm font-bold"
-            style={{ color: score > 0 ? COLORS.primary : score < 0 ? COLORS.primaryGold : COLORS.textSecondary }}
+            style={{ color: score > 0 ? "#E0301E" : score < 0 ? "#FFD200" : "#A0A0A0" }}
           >
             {formatNumber(score)}
           </span>
@@ -128,9 +120,9 @@ export default function VideoCard({ post }: VideoCardProps) {
             onClick={() => handleVote("down")}
             disabled={!auth.currentUser || isVoting}
             className="p-1 rounded transition-colors disabled:opacity-50"
-            style={{ color: userVote === "down" ? COLORS.primaryGold : COLORS.textSecondary }}
+            style={{ color: userVote === "down" ? "#FFD200" : "#A0A0A0" }}
           >
-            <ArrowBigDown size={24} fill={userVote === "down" ? COLORS.primaryGold : "none"} />
+            <ArrowBigDown size={24} fill={userVote === "down" ? "#FFD200" : "none"} />
           </button>
         </div>
 
@@ -143,20 +135,14 @@ export default function VideoCard({ post }: VideoCardProps) {
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                <div
-                  className="w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: COLORS.primary + "CC" }}
-                >
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center bg-[#E0301E]/80">
                   <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M8 5v14l11-7z" />
                   </svg>
                 </div>
               </div>
               {isYoutube && (
-                <div
-                  className="absolute bottom-2 right-2 px-2 py-1 rounded text-xs font-medium text-white"
-                  style={{ backgroundColor: "rgba(0,0,0,0.8)" }}
-                >
+                <div className="absolute bottom-2 right-2 px-2 py-1 rounded text-xs font-medium text-white bg-black/80">
                   YouTube
                 </div>
               )}
@@ -170,7 +156,7 @@ export default function VideoCard({ post }: VideoCardProps) {
               </h3>
             </Link>
 
-            <div className="flex items-center gap-2 mt-2 text-xs sm:text-sm" style={{ color: COLORS.textSecondary }}>
+            <div className="flex items-center gap-2 mt-2 text-xs sm:text-sm text-[#A0A0A0]">
               <Link
                 href={`/profile/${post.authorId}`}
                 className="flex items-center gap-2 hover:underline"
@@ -180,7 +166,7 @@ export default function VideoCard({ post }: VideoCardProps) {
                   alt={post.authorName}
                   className="w-5 h-5 sm:w-6 sm:h-6 rounded-full"
                 />
-                <span style={{ color: COLORS.primary }}>{post.authorName}</span>
+                <span className="text-[#E0301E]">{post.authorName}</span>
               </Link>
               <span>•</span>
               <span>{timeAgo(post.createdAt)}</span>
@@ -189,16 +175,14 @@ export default function VideoCard({ post }: VideoCardProps) {
             <div className="flex items-center gap-3 sm:gap-4 mt-3">
               <Link
                 href={`/post/${post.id}#comments`}
-                className="flex items-center gap-1 text-xs sm:text-sm transition-colors"
-                style={{ color: COLORS.textSecondary }}
+                className="flex items-center gap-1 text-xs sm:text-sm text-[#A0A0A0]"
               >
                 <MessageCircle size={16} />
                 <span>{post.commentCount}</span>
               </Link>
               <button
                 onClick={handleShare}
-                className="flex items-center gap-1 text-xs sm:text-sm transition-colors"
-                style={{ color: COLORS.textSecondary }}
+                className="flex items-center gap-1 text-xs sm:text-sm text-[#A0A0A0]"
               >
                 <Share2 size={16} />
                 <span>Share</span>

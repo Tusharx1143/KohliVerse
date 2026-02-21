@@ -15,7 +15,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="antialiased min-h-screen bg-dark">
+      <body className="antialiased min-h-screen bg-dark" suppressHydrationWarning>
         <AuthProvider>
           <Navbar />
           <main>{children}</main>

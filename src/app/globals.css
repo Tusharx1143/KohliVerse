@@ -74,3 +74,16 @@ button {
 .bg-dark {
   background-color: #0D0D0D;
 }
+
+/* Color utilities */
+.bg-primary { background-color: #E0301E; }
+.bg-secondary { background-color: #FFD200; }
+.bg-card { background-color: #1A1A1A; }
+.bg-muted { background-color: #2A2A2A; }
+.bg-dark { background-color: #0D0D0D; }
+
+.text-primary { color: #E0301E; }
+.text-secondary { color: #FFD200; }
+.text-muted { color: #A0A0A0; }
+
+.border-default { border-color: #2A2A2A; }
