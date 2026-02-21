@@ -52,6 +52,7 @@ export default function ProfilePage() {
             totalVotesReceived: 0,
             totalPosts: 0,
             isSetupComplete: false,
+            role: "user",
           })
         }
 

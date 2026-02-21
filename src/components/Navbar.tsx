@@ -1,32 +1,71 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { User, LogOut, Plus, Trophy, Home, X, Mail, Lock } from "lucide-react"
-import { auth, googleProvider } from "@/lib/firebase"
+import { usePathname, useRouter } from "next/navigation"
+import { User, LogOut, Plus, Trophy, Home, X, Mail, Lock, Search, Bell, Bookmark, Settings, Shield } from "lucide-react"
+import { auth, googleProvider, db } from "@/lib/firebase"
 import { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser } from "firebase/auth"
+import { doc, getDoc } from "firebase/firestore"
 import { cn } from "@/lib/utils"
+import { collection, query, where, getCountFromServer } from "firebase/firestore"
 
 const APP_NAME = "KohliVerse"
 
 export default function Navbar() {
   const pathname = usePathname()
+  const router = useRouter()
   const [user, setUser] = useState<FirebaseUser | null>(null)
+  const [userRole, setUserRole] = useState<string>("user")
   const [loading, setLoading] = useState(true)
   const [showLogin, setShowLogin] = useState(false)
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState("")
+  const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  
+  // Search
+  const [showSearch, setShowSearch] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const searchRef = useRef<HTMLDivElement>(null)
+  
+  // Notifications
+  const [notificationCount, setNotificationCount] = useState(0)
+  const [showNotifications, setShowNotifications] = useState(false)
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user)
+      if (user) {
+        const userDoc = await getDoc(doc(db, "users", user.uid))
+        if (userDoc.exists()) {
+          setUserRole(userDoc.data().role || "user")
+        }
+        
+        // Get unread notifications count
+        const notifQuery = query(
+          collection(db, "notifications", user.uid, "userNotifications"),
+          where("read", "==", false)
+        )
+        const notifSnap = await getCountFromServer(notifQuery)
+        setNotificationCount(notifSnap.data().count)
+      }
       setLoading(false)
     })
     return () => unsubscribe()
+  }, [])
+
+  // Close search when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSearch(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
   const handleGoogleLogin = async () => {
@@ -46,8 +85,14 @@ export default function Navbar() {
     setSubmitting(true)
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      setError("Please enter a valid email address")
+    const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/
+
+    // Determine if input is email or username
+    const isEmail = emailRegex.test(email)
+    const isUsername = usernameRegex.test(email)
+    
+    if (!isEmail && !isUsername) {
+      setError("Please enter a valid email or username")
       setSubmitting(false)
       return
     }
@@ -62,7 +107,20 @@ export default function Navbar() {
       if (isSignUp) {
         await createUserWithEmailAndPassword(auth, email, password)
       } else {
-        await signInWithEmailAndPassword(auth, email, password)
+        // For login, we need to use Firebase Auth with email
+        // If user entered username, we need to look up their email first
+        if (isUsername && !email.includes("@")) {
+          const usernameDoc = await getDoc(doc(db, "usernameEmails", email.toLowerCase()))
+          if (usernameDoc.exists()) {
+            await signInWithEmailAndPassword(auth, usernameDoc.data().email, password)
+          } else {
+            setError("Username not found")
+            setSubmitting(false)
+            return
+          }
+        } else {
+          await signInWithEmailAndPassword(auth, email, password)
+        }
       }
       setShowLogin(false)
       setEmail("")
@@ -78,8 +136,18 @@ export default function Navbar() {
   const handleLogout = async () => {
     try {
       await signOut(auth)
+      router.push("/")
     } catch (error) {
       console.error("Logout error:", error)
+    }
+  }
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`)
+      setShowSearch(false)
+      setSearchQuery("")
     }
   }
 
@@ -96,12 +164,29 @@ export default function Navbar() {
             <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white bg-[#E0301E]">
               KV
             </div>
-            <span className="font-bold text-xl text-[#E0301E]">
+            <span className="font-bold text-xl text-[#E0301E] hidden sm:block">
               {APP_NAME}
             </span>
           </Link>
 
-          <div className="flex items-center gap-2 sm:gap-4">
+          {/* Search Bar */}
+          <div className="relative flex-1 max-w-xs mx-4" ref={searchRef}>
+            <form onSubmit={handleSearch}>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A0A0A0]" size={16} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => setShowSearch(true)}
+                  placeholder="Search..."
+                  className="w-full pl-9 pr-4 py-1.5 text-sm rounded-lg border border-[#2A2A2A] bg-[#1A1A1A] text-white placeholder-neutral-500 focus:outline-none focus:border-[#E0301E]"
+                />
+              </div>
+            </form>
+          </div>
+
+          <div className="flex items-center gap-1 sm:gap-2">
             {navLinks.map((link) => {
               const Icon = link.icon
               const isActive = pathname === link.href
@@ -110,15 +195,13 @@ export default function Navbar() {
                   key={link.href}
                   href={link.href}
                   className={cn(
-                    "flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-lg transition-colors",
+                    "flex items-center gap-1 px-2 py-2 rounded-lg transition-colors",
                     isActive ? "bg-[#E0301E]/20" : "hover:bg-[#E0301E]/10"
                   )}
-                  style={{
-                    color: isActive ? "#E0301E" : "#A0A0A0"
-                  }}
+                  style={{ color: isActive ? "#E0301E" : "#A0A0A0" }}
                 >
                   <Icon size={18} />
-                  <span className="hidden sm:inline">{link.label}</span>
+                  <span className="hidden sm:inline text-sm">{link.label}</span>
                 </Link>
               )
             })}
@@ -126,33 +209,96 @@ export default function Navbar() {
             {user && (
               <Link
                 href="/submit"
-                className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors bg-[#E0301E] text-white"
+                className="flex items-center gap-1 px-2 sm:px-3 py-2 rounded-lg font-medium transition-colors bg-[#E0301E] text-white"
               >
                 <Plus size={18} />
-                <span className="hidden sm:inline">Submit</span>
+                <span className="hidden sm:inline text-sm">Submit</span>
               </Link>
             )}
 
             {loading ? (
-              <div className="w-8 sm:w-10 h-8 sm:h-10 rounded-full bg-neutral-800 animate-pulse" />
+              <div className="w-8 h-8 rounded-full bg-neutral-800 animate-pulse" />
             ) : user ? (
-              <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-1">
+                {/* Saved */}
                 <Link
-                  href={`/profile/${user.uid}`}
-                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden border-2 border-[#E0301E]"
+                  href="/saved"
+                  className="p-2 rounded-lg hover:bg-[#E0301E]/10 text-[#A0A0A0]"
+                  title="Saved"
                 >
-                  <img
-                    src={user.photoURL || "/default-avatar.png"}
-                    alt={user.displayName || "User"}
-                    className="w-full h-full object-cover"
-                  />
+                  <Bookmark size={18} />
                 </Link>
-                <button
-                  onClick={handleLogout}
-                  className="p-2 rounded-lg hover:bg-neutral-800 text-[#A0A0A0]"
+                
+                {/* Notifications */}
+                <Link
+                  href="/notifications"
+                  className="p-2 rounded-lg hover:bg-[#E0301E]/10 text-[#A0A0A0] relative"
+                  title="Notifications"
                 >
-                  <LogOut size={18} />
-                </button>
+                  <Bell size={18} />
+                  {notificationCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#E0301E] text-white text-xs rounded-full flex items-center justify-center">
+                      {notificationCount > 9 ? "9+" : notificationCount}
+                    </span>
+                  )}
+                </Link>
+
+                {/* Profile dropdown */}
+                <div className="relative group">
+                  <Link
+                    href={`/profile/${user.uid}`}
+                    className="w-8 h-8 rounded-full overflow-hidden border-2 border-[#E0301E]"
+                  >
+                    <img
+                      src={user.photoURL || "/default-avatar.png"}
+                      alt={user.displayName || "User"}
+                      className="w-full h-full object-cover"
+                    />
+                  </Link>
+                  
+                  {/* Dropdown menu */}
+                  <div className="absolute right-0 top-full mt-1 w-48 rounded-lg border border-[#2A2A2A] bg-[#1A1A1A] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                    <div className="p-2">
+                      <Link
+                        href={`/profile/${user.uid}`}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#2A2A2A] text-white text-sm"
+                      >
+                        <User size={16} />
+                        Profile
+                      </Link>
+                      <Link
+                        href="/saved"
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#2A2A2A] text-white text-sm"
+                      >
+                        <Bookmark size={16} />
+                        Saved
+                      </Link>
+                      <Link
+                        href="/settings"
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#2A2A2A] text-white text-sm"
+                      >
+                        <Settings size={16} />
+                        Settings
+                      </Link>
+                      {userRole === "admin" && (
+                        <Link
+                          href="/admin"
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#2A2A2A] text-[#E0301E] text-sm"
+                        >
+                          <Shield size={16} />
+                          Admin
+                        </Link>
+                      )}
+                      <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#2A2A2A] text-[#E0301E] text-sm"
+                      >
+                        <LogOut size={16} />
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : (
               <button
@@ -160,7 +306,7 @@ export default function Navbar() {
                 className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors bg-[#E0301E] text-white"
               >
                 <User size={18} />
-                <span className="hidden sm:inline">Login</span>
+                <span className="hidden sm:inline text-sm">Login</span>
               </button>
             )}
           </div>
@@ -184,15 +330,17 @@ export default function Navbar() {
 
             <form onSubmit={handleEmailAuth} className="space-y-4 mb-4">
               <div>
-                <label className="block text-sm text-white mb-1">Email</label>
+                <label className="block text-sm text-white mb-1">
+                  {isSignUp ? "Email" : "Email or Username"}
+                </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A0A0A0]" size={18} />
                   <input
-                    type="email"
+                    type="text"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-10 pr-4 py-2 rounded-lg border border-[#2A2A2A] bg-transparent text-white placeholder-neutral-500"
-                    placeholder="your@email.com"
+                    placeholder={isSignUp ? "your@email.com" : "email or username"}
                     required
                   />
                 </div>

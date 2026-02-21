@@ -81,6 +81,13 @@ export default function SetupPage() {
         createdAt: new Date()
       })
 
+      // Store username-email mapping for login
+      await setDoc(doc(db, "usernameEmails", trimmedUsername.toLowerCase()), {
+        email: user.email || "",
+        uid: user.uid,
+        createdAt: new Date()
+      })
+
       // Create/update user document
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
@@ -91,7 +98,8 @@ export default function SetupPage() {
         createdAt: new Date(),
         totalVotesReceived: 0,
         totalPosts: 0,
-        isSetupComplete: true
+        isSetupComplete: true,
+        role: "user"
       }, { merge: true })
 
       router.push("/")
