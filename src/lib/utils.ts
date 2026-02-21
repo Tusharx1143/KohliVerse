@@ -70,7 +70,7 @@ export function getEmbedUrl(url: string): string {
   }
   
   if (platform === "instagram" && id) {
-    return `https://www.instagram.com/p/${id}/embed`
+    return `https://www.instagram.com/p/${id}/embed/`
   }
   
   return ""
@@ -87,5 +87,5 @@ export function getThumbnailUrl(url: string): string {
     return `https://www.instagram.com/p/${id}/media/?size=l`
   }
   
-  return "/placeholder.jpg"
+  return ""
 }

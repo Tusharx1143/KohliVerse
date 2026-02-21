@@ -246,9 +246,12 @@ export default function VideoCard({ post, showAuthorFollow = true }: VideoCardPr
             <Link href={`/post/${post.id}`}>
               <div className="relative aspect-video bg-black">
                 <img
-                  src={post.thumbnailUrl}
+                  src={post.thumbnailUrl || "/default-avatar.png"}
                   alt={post.title}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = "/default-avatar.png"
+                  }}
                 />
                 <div className="absolute inset-0 flex items-center justify-center bg-black/40">
                   <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center bg-[#E0301E]/80">
@@ -290,7 +293,14 @@ export default function VideoCard({ post, showAuthorFollow = true }: VideoCardPr
               <div className="flex items-center justify-between mt-3">
                 <div className="flex items-center gap-2 text-xs sm:text-sm text-[#A0A0A0]">
                   <Link href={`/profile/${post.authorId}`} className="flex items-center gap-2 hover:underline">
-                    <img src={post.authorAvatar} alt={post.authorName} className="w-5 h-5 sm:w-6 sm:h-6 rounded-full" />
+                    <img 
+                      src={post.authorAvatar || "/default-avatar.png"} 
+                      alt={post.authorName} 
+                      className="w-5 h-5 sm:w-6 sm:h-6 rounded-full"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/default-avatar.png"
+                      }}
+                    />
                     <span className="text-[#E0301E]">{post.authorName}</span>
                   </Link>
                   <span>•</span>

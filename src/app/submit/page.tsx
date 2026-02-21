@@ -115,10 +115,16 @@ export default function SubmitPage() {
 
       const urlHash = btoa(url).slice(0, 50)
 
+      // Get username from Firestore
+      const userDoc = await getDoc(doc(db, "users", user.uid))
+      const userData = userDoc.exists() ? userDoc.data() : {}
+      const username = userData.username || user.displayName || "Anonymous"
+      const avatarUrl = userData.avatarUrl || user.photoURL || "/default-avatar.png"
+
       const postRef = await addDoc(collection(db, "posts"), {
         authorId: user.uid,
-        authorName: user.displayName || "Anonymous",
-        authorAvatar: user.photoURL || "/default-avatar.png",
+        authorName: username,
+        authorAvatar: avatarUrl,
         videoUrl: url,
         videoUrlHash: urlHash,
         embedUrl: `https://www.youtube.com/embed/${id}`,
