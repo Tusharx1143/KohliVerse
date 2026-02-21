@@ -1,25 +1,16 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { collection, query, orderBy, limit, getDocs } from "firebase/firestore"
-import { db } from "@/lib/firebase"
 import { Post } from "@/lib/types"
 import { COLORS } from "@/lib/constants"
 import { formatNumber, timeAgo } from "@/lib/utils"
+import { getPosts, getLeaderboard } from "@/lib/db-utils"
 import Link from "next/link"
 import { Loader2, Trophy, Crown, Medal } from "lucide-react"
 
-interface TopCreator {
-  authorId: string
-  authorName: string
-  authorAvatar: string
-  totalVotes: number
-  totalPosts: number
-}
-
 export default function LeaderboardPage() {
   const [topPosts, setTopPosts] = useState<Post[]>([])
-  const [topCreators, setTopCreators] = useState<TopCreator[]>([])
+  const [topCreators, setTopCreators] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<"edits" | "creators">("edits")
 
@@ -30,43 +21,38 @@ export default function LeaderboardPage() {
   const loadLeaderboard = async () => {
     setLoading(true)
     try {
-      const postsQuery = query(
-        collection(db, "posts"),
-        orderBy("upvotes", "desc"),
-        limit(10)
-      )
-      const postsSnap = await getDocs(postsQuery)
-      const posts = postsSnap.docs.map((doc) => {
-        const data = doc.data()
-        return {
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt?.toDate() || new Date(),
-        } as Post
-      })
+      const dbPosts = await getPosts({ sort: "top", limit: 10 })
+      
+      const posts = dbPosts.map((p: any) => ({
+        id: p.id.toString(),
+        authorId: p.author_id,
+        authorName: p.author_name,
+        authorAvatar: p.author_avatar,
+        videoUrl: p.video_url,
+        embedUrl: p.embed_url,
+        thumbnailUrl: p.thumbnail_url,
+        platform: p.platform as "youtube" | "instagram",
+        mediaUrl: p.media_url,
+        mediaType: p.media_type as "image" | "video",
+        type: p.post_type as "embed" | "upload",
+        title: p.title,
+        tags: p.tags || [],
+        upvotes: p.upvotes,
+        downvotes: p.downvotes,
+        commentCount: p.comment_count,
+        createdAt: new Date(p.created_at),
+        hotScore: p.hot_score,
+      }))
       setTopPosts(posts)
 
-      const creatorsMap = new Map<string, TopCreator>()
-      posts.forEach((post) => {
-        if (creatorsMap.has(post.authorId)) {
-          const creator = creatorsMap.get(post.authorId)!
-          creator.totalVotes += post.upvotes
-          creator.totalPosts += 1
-        } else {
-          creatorsMap.set(post.authorId, {
-            authorId: post.authorId,
-            authorName: post.authorName,
-            authorAvatar: post.authorAvatar,
-            totalVotes: post.upvotes,
-            totalPosts: 1,
-          })
-        }
-      })
-
-      const creators = Array.from(creatorsMap.values())
-        .sort((a, b) => b.totalVotes - a.totalVotes)
-        .slice(0, 10)
-      setTopCreators(creators)
+      const leaders = await getLeaderboard(10)
+      setTopCreators(leaders.map((l: any) => ({
+        authorId: l.id,
+        authorName: l.username,
+        authorAvatar: l.avatar_url,
+        totalVotes: l.total_votes_received || 0,
+        totalPosts: l.total_posts || 0,
+      })))
     } catch (error) {
       console.error("Error loading leaderboard:", error)
     } finally {
@@ -139,14 +125,14 @@ export default function LeaderboardPage() {
                 {getRankIcon(index + 1)}
               </div>
               <img
-                src={post.thumbnailUrl}
+                src={post.thumbnailUrl || "/default-avatar.png"}
                 alt={post.title}
                 className="w-24 h-16 object-cover rounded-lg"
               />
               <div className="flex-1 min-w-0">
                 <h3 className="font-medium text-white truncate">{post.title}</h3>
                 <div className="flex items-center gap-2 mt-1 text-sm" style={{ color: COLORS.textSecondary }}>
-                  <img src={post.authorAvatar} alt={post.authorName} className="w-5 h-5 rounded-full" />
+                  <img src={post.authorAvatar || "/default-avatar.png"} alt={post.authorName} className="w-5 h-5 rounded-full" />
                   <span style={{ color: COLORS.primary }}>{post.authorName}</span>
                   <span>•</span>
                   <span>{timeAgo(post.createdAt)}</span>
@@ -174,7 +160,7 @@ export default function LeaderboardPage() {
                 {getRankIcon(index + 1)}
               </div>
               <img
-                src={creator.authorAvatar}
+                src={creator.authorAvatar || "/default-avatar.png"}
                 alt={creator.authorName}
                 className="w-12 h-12 rounded-full"
               />

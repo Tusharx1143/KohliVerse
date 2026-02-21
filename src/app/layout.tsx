@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
+import { ClerkProvider } from "@clerk/nextjs"
 import "./globals.css"
 import Navbar from "@/components/Navbar"
-import AuthProvider from "@/components/AuthProvider"
 
 export const metadata: Metadata = {
   title: "KohliVerse - Ranked Community for Virat Kohli Edits",
@@ -14,13 +14,13 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className="antialiased min-h-screen bg-dark" suppressHydrationWarning>
-        <AuthProvider>
+    <ClerkProvider>
+      <html lang="en" suppressHydrationWarning>
+        <body className="antialiased min-h-screen bg-dark" suppressHydrationWarning>
           <Navbar />
           <main>{children}</main>
-        </AuthProvider>
-      </body>
-    </html>
+        </body>
+      </html>
+    </ClerkProvider>
   )
 }

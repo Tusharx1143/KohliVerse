@@ -2,62 +2,53 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { db, auth } from "@/lib/firebase"
-import { collection, query, orderBy, limit, onSnapshot, updateDoc, doc } from "firebase/firestore"
-import { onAuthStateChanged } from "firebase/auth"
-import { Notification } from "@/lib/types"
+import { useAuth } from "@clerk/nextjs"
 import { COLORS } from "@/lib/constants"
+import { getNotifications, markNotificationRead } from "@/lib/db-utils"
 import { timeAgo } from "@/lib/utils"
 import { Bell, Loader2, Heart, MessageCircle, UserPlus, Check } from "lucide-react"
 import Link from "next/link"
 
 export default function NotificationsPage() {
   const router = useRouter()
-  const [notifications, setNotifications] = useState<Notification[]>([])
+  const { userId } = useAuth()
+  const [notifications, setNotifications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState(auth.currentUser)
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.push("/")
-        return
-      }
-      setUser(user)
-      setLoading(false)
-    })
-    return () => unsubscribe()
-  }, [router])
+    if (!userId) {
+      router.push("/")
+      return
+    }
+    loadNotifications()
+  }, [userId, router])
 
-  useEffect(() => {
-    if (!user) return
-
-    const notifQuery = query(
-      collection(db, "notifications", user.uid, "userNotifications"),
-      orderBy("createdAt", "desc"),
-      limit(50)
-    )
-
-    const unsubscribe = onSnapshot(notifQuery, (snapshot) => {
-      const notifs = snapshot.docs.map(doc => {
-        const data = doc.data()
-        return {
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt?.toDate() || new Date(),
-        } as Notification
-      })
-      setNotifications(notifs)
-    })
-
-    return () => unsubscribe()
-  }, [user])
-
-  const markAsRead = async (notifId: string) => {
+  const loadNotifications = async () => {
     try {
-      await updateDoc(doc(db, "notifications", user!.uid, "userNotifications", notifId), {
-        read: true
-      })
+      const notifs = await getNotifications(userId!)
+      setNotifications(notifs.map((n: any) => ({
+        id: n.id,
+        type: n.type,
+        fromUserId: n.from_user_id,
+        fromUsername: n.from_username,
+        fromUserAvatar: n.from_user_avatar,
+        postId: n.post_id,
+        read: n.read,
+        createdAt: new Date(n.created_at),
+      })))
+    } catch (error) {
+      console.error("Error loading notifications:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const markAsRead = async (notifId: number) => {
+    try {
+      await markNotificationRead(notifId)
+      setNotifications(prev => 
+        prev.map(n => n.id === notifId ? { ...n, read: true } : n)
+      )
     } catch (error) {
       console.error("Error marking notification as read:", error)
     }
@@ -65,14 +56,9 @@ export default function NotificationsPage() {
 
   const markAllAsRead = async () => {
     try {
-      const unreadNotifs = notifications.filter(n => !n.read)
-      await Promise.all(
-        unreadNotifs.map(n => 
-          updateDoc(doc(db, "notifications", user!.uid, "userNotifications", n.id), {
-            read: true
-          })
-        )
-      )
+      const unread = notifications.filter(n => !n.read)
+      await Promise.all(unread.map(n => markNotificationRead(n.id)))
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })))
     } catch (error) {
       console.error("Error marking all as read:", error)
     }
@@ -92,8 +78,8 @@ export default function NotificationsPage() {
     }
   }
 
-  const getNotificationText = (notif: Notification) => {
-    switch (notif.type) {
+  const getNotificationText = (type: string) => {
+    switch (type) {
       case "upvote":
         return "upvoted your post"
       case "comment":
@@ -174,7 +160,7 @@ export default function NotificationsPage() {
                   >
                     @{notif.fromUsername}
                   </Link>{" "}
-                  {getNotificationText(notif)}
+                  {getNotificationText(notif.type)}
                 </p>
                 <p className="text-xs text-[#A0A0A0] mt-1">
                   {timeAgo(notif.createdAt)}

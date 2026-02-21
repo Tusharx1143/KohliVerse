@@ -22,10 +22,13 @@ export interface Post {
   authorId: string
   authorName: string
   authorAvatar: string
-  videoUrl: string
-  embedUrl: string
-  thumbnailUrl: string
-  platform: "youtube" | "instagram"
+  videoUrl?: string
+  embedUrl?: string
+  thumbnailUrl?: string
+  platform?: "youtube" | "instagram"
+  mediaUrl?: string
+  mediaType?: "image" | "video"
+  type?: "embed" | "upload"
   title: string
   tags: string[]
   upvotes: number
@@ -34,6 +37,7 @@ export interface Post {
   createdAt: Date
   hotScore: number
   userVote?: "up" | "down" | null
+  videoUrlHash?: string
 }
 
 export interface Vote {

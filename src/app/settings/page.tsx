@@ -2,74 +2,66 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { auth, db } from "@/lib/firebase"
-import { doc, getDoc, updateDoc } from "firebase/firestore"
-import { onAuthStateChanged } from "firebase/auth"
+import { useAuth } from "@clerk/nextjs"
+import { useUser } from "@clerk/nextjs"
 import { COLORS } from "@/lib/constants"
+import { getUserById, updateUser } from "@/lib/db-utils"
 import { Loader2, User, Mail, Camera, Save, ArrowLeft, Link2 } from "lucide-react"
 import Link from "next/link"
 
 export default function SettingsPage() {
   const router = useRouter()
+  const { userId } = useAuth()
+  const { user: clerkUser } = useUser()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [user, setUser] = useState<any>(null)
-  const [authUser, setAuthUser] = useState<any>(null)
+  const [profileUser, setProfileUser] = useState<any>(null)
   
-  // Form fields
   const [bio, setBio] = useState("")
   const [avatarUrl, setAvatarUrl] = useState("")
-  const [facebook, setFacebook] = useState("")
-  const [instagram, setInstagram] = useState("")
-  const [twitter, setTwitter] = useState("")
   
   const [success, setSuccess] = useState("")
   const [error, setError] = useState("")
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
-      if (!authUser) {
-        router.push("/")
-        return
-      }
-      setAuthUser(authUser)
+    if (!userId) {
+      router.push("/")
+      return
+    }
 
-      // Get user data
-      const userDoc = await getDoc(doc(db, "users", authUser.uid))
-      if (userDoc.exists()) {
-        const data = userDoc.data()
-        setUser(data)
-        setBio(data.bio || "")
-        setAvatarUrl(data.avatarUrl || "")
-        setFacebook(data.socialLinks?.facebook || "")
-        setInstagram(data.socialLinks?.instagram || "")
-        setTwitter(data.socialLinks?.twitter || "")
+    const loadUser = async () => {
+      const dbUser = await getUserById(userId)
+      const user = dbUser as any
+      if (user) {
+        setProfileUser(user)
+        setBio(user.bio || "")
+        setAvatarUrl(user.avatar_url || "")
+      } else {
+        setProfileUser({
+          username: clerkUser?.username || "User",
+          email: clerkUser?.emailAddresses[0]?.emailAddress || "",
+        })
       }
       setLoading(false)
-    })
-    return () => unsubscribe()
-  }, [router])
+    }
+    loadUser()
+  }, [userId, router, clerkUser])
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!authUser) return
+    if (!userId) return
 
     setSaving(true)
     setError("")
     setSuccess("")
 
     try {
-      await updateDoc(doc(db, "users", authUser.uid), {
-        bio: bio.trim(),
-        avatarUrl: avatarUrl.trim(),
-        socialLinks: {
-          facebook: facebook.trim(),
-          instagram: instagram.trim(),
-          twitter: twitter.trim()
-        },
-        updatedAt: new Date()
-      })
-
+      if (bio !== (profileUser as any)?.bio) {
+        await updateUser(userId, { bio: bio.trim() })
+      }
+      if (avatarUrl !== (profileUser as any)?.avatar_url) {
+        await updateUser(userId, { avatar_url: avatarUrl.trim() })
+      }
       setSuccess("Profile updated successfully!")
     } catch (err) {
       console.error("Save error:", err)
@@ -83,7 +75,6 @@ export default function SettingsPage() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // For now, just use the file URL directly (in production, you'd upload to Firebase Storage)
     const reader = new FileReader()
     reader.onload = (event) => {
       setAvatarUrl(event.target?.result as string)
@@ -99,20 +90,11 @@ export default function SettingsPage() {
     )
   }
 
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="animate-spin" size={32} style={{ color: COLORS.primary }} />
-      </div>
-    )
-  }
-
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      {/* Header */}
       <div className="flex items-center gap-4 mb-8">
         <Link
-          href={`/profile/${authUser?.uid}`}
+          href={`/profile/${userId}`}
           className="p-2 rounded-lg hover:bg-neutral-800 transition-colors"
         >
           <ArrowLeft size={20} style={{ color: COLORS.textSecondary }} />
@@ -121,7 +103,6 @@ export default function SettingsPage() {
       </div>
 
       <form onSubmit={handleSave} className="space-y-8">
-        {/* Profile Picture */}
         <div className="flex items-center gap-6">
           <div className="relative">
             <div
@@ -159,32 +140,27 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Username (read-only) */}
         <div>
           <label className="block text-sm font-medium text-white mb-2">Username</label>
           <div className="relative">
             <User className="absolute left-3 top-1/2 -translate-y-1/2" size={18} style={{ color: COLORS.textSecondary }} />
             <input
               type="text"
-              value={user.username || ""}
+              value={profileUser?.username || ""}
               disabled
               className="w-full pl-10 pr-4 py-3 rounded-lg border bg-neutral-900 text-neutral-400"
               style={{ borderColor: COLORS.border }}
             />
           </div>
-          <p className="text-xs mt-1" style={{ color: COLORS.textSecondary }}>
-            Username cannot be changed
-          </p>
         </div>
 
-        {/* Email (read-only) */}
         <div>
           <label className="block text-sm font-medium text-white mb-2">Email</label>
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2" size={18} style={{ color: COLORS.textSecondary }} />
             <input
               type="email"
-              value={user.email || ""}
+              value={clerkUser?.emailAddresses[0]?.emailAddress || ""}
               disabled
               className="w-full pl-10 pr-4 py-3 rounded-lg border bg-neutral-900 text-neutral-400"
               style={{ borderColor: COLORS.border }}
@@ -192,7 +168,6 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Bio */}
         <div>
           <label className="block text-sm font-medium text-white mb-2">Bio</label>
           <textarea
@@ -209,56 +184,6 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        {/* Social Links */}
-        <div>
-          <h3 className="font-semibold text-white mb-4">Social Links</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs text-white mb-1">Facebook</label>
-              <div className="relative">
-                <Link2 className="absolute left-3 top-1/2 -translate-y-1/2" size={18} style={{ color: COLORS.textSecondary }} />
-                <input
-                  type="url"
-                  value={facebook}
-                  onChange={(e) => setFacebook(e.target.value)}
-                  placeholder="https://facebook.com/yourname"
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border bg-transparent text-white placeholder-neutral-500"
-                  style={{ borderColor: COLORS.border }}
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs text-white mb-1">Instagram</label>
-              <div className="relative">
-                <Link2 className="absolute left-3 top-1/2 -translate-y-1/2" size={18} style={{ color: COLORS.textSecondary }} />
-                <input
-                  type="url"
-                  value={instagram}
-                  onChange={(e) => setInstagram(e.target.value)}
-                  placeholder="https://instagram.com/yourname"
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border bg-transparent text-white placeholder-neutral-500"
-                  style={{ borderColor: COLORS.border }}
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs text-white mb-1">Twitter/X</label>
-              <div className="relative">
-                <Link2 className="absolute left-3 top-1/2 -translate-y-1/2" size={18} style={{ color: COLORS.textSecondary }} />
-                <input
-                  type="url"
-                  value={twitter}
-                  onChange={(e) => setTwitter(e.target.value)}
-                  placeholder="https://x.com/yourname"
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border bg-transparent text-white placeholder-neutral-500"
-                  style={{ borderColor: COLORS.border }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Messages */}
         {success && (
           <p className="text-sm p-3 rounded-lg" style={{ backgroundColor: "#22c55e20", color: "#22c55e" }}>
             {success}
@@ -270,7 +195,6 @@ export default function SettingsPage() {
           </p>
         )}
 
-        {/* Save Button */}
         <button
           type="submit"
           disabled={saving}

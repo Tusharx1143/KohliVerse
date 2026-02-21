@@ -1,10 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { collection, query, orderBy, limit, getDocs, startAfter, DocumentData } from "firebase/firestore"
-import { db } from "@/lib/firebase"
 import { Post, SortOption } from "@/lib/types"
 import { COLORS } from "@/lib/constants"
+import { getPosts } from "@/lib/db-utils"
 import VideoCard from "@/components/VideoCard"
 import SortFilter from "@/components/SortFilter"
 import { Loader2 } from "lucide-react"
@@ -15,7 +14,7 @@ export default function Home() {
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [sort, setSort] = useState<SortOption>("hot")
-  const [lastDoc, setLastDoc] = useState<DocumentData | null>(null)
+  const [offset, setOffset] = useState(0)
   const [hasMore, setHasMore] = useState(true)
 
   useEffect(() => {
@@ -25,40 +24,45 @@ export default function Home() {
   const loadPosts = async (reset = false) => {
     setLoading(true)
     
-    let q = query(
-      collection(db, "posts"),
-      orderBy(sort === "hot" ? "hotScore" : sort === "new" ? "createdAt" : "upvotes", "desc"),
-      limit(POSTS_PER_PAGE)
-    )
-
-    if (!reset && lastDoc) {
-      q = query(
-        collection(db, "posts"),
-        orderBy(sort === "hot" ? "hotScore" : sort === "new" ? "createdAt" : "upvotes", "desc"),
-        startAfter(lastDoc),
-        limit(POSTS_PER_PAGE)
-      )
-    }
-
+    const newOffset = reset ? 0 : offset
+    
     try {
-      const snapshot = await getDocs(q)
-      const newPosts = snapshot.docs.map((doc) => {
-        const data = doc.data()
-        return {
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt?.toDate() || new Date(),
-        } as Post
+      const dbPosts = await getPosts({
+        sort,
+        limit: POSTS_PER_PAGE,
+        offset: newOffset,
       })
 
+      const mappedPosts: Post[] = dbPosts.map((p: any) => ({
+        id: p.id.toString(),
+        authorId: p.author_id,
+        authorName: p.author_name,
+        authorAvatar: p.author_avatar,
+        videoUrl: p.video_url,
+        embedUrl: p.embed_url,
+        thumbnailUrl: p.thumbnail_url,
+        platform: p.platform as "youtube" | "instagram",
+        mediaUrl: p.media_url,
+        mediaType: p.media_type as "image" | "video",
+        type: p.post_type as "embed" | "upload",
+        title: p.title,
+        tags: p.tags || [],
+        upvotes: p.upvotes,
+        downvotes: p.downvotes,
+        commentCount: p.comment_count,
+        createdAt: new Date(p.created_at),
+        hotScore: p.hot_score,
+      }))
+
       if (reset) {
-        setPosts(newPosts)
+        setPosts(mappedPosts)
+        setOffset(POSTS_PER_PAGE)
       } else {
-        setPosts((prev) => [...prev, ...newPosts])
+        setPosts((prev) => [...prev, ...mappedPosts])
+        setOffset(prev => prev + POSTS_PER_PAGE)
       }
 
-      setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null)
-      setHasMore(snapshot.docs.length === POSTS_PER_PAGE)
+      setHasMore(mappedPosts.length === POSTS_PER_PAGE)
     } catch (error) {
       console.error("Error loading posts:", error)
     } finally {
@@ -68,7 +72,7 @@ export default function Home() {
 
   const loadMore = () => {
     if (!loading && hasMore) {
-      loadPosts()
+      loadPosts(false)
     }
   }
 

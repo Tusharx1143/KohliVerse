@@ -2,47 +2,61 @@
 
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
-import { db, auth } from "@/lib/firebase"
-import { doc, getDoc, collection, addDoc, query, orderBy, onSnapshot, increment, updateDoc, setDoc, deleteDoc } from "firebase/firestore"
-import { onAuthStateChanged } from "firebase/auth"
+import { useAuth } from "@clerk/nextjs"
+import { useUser } from "@clerk/nextjs"
 import { Post, Comment } from "@/lib/types"
 import { COLORS } from "@/lib/constants"
 import { formatNumber, timeAgo } from "@/lib/utils"
+import { getPostById, getComments as getDbComments, createComment, votePost, unvotePost, getUserById } from "@/lib/db-utils"
 import { ArrowBigUp, ArrowBigDown, MessageCircle, Share2, Send } from "lucide-react"
 import Link from "next/link"
 import { Loader2 } from "lucide-react"
 
 export default function PostPage() {
   const params = useParams()
-  const postId = params.id as string
+  const postId = parseInt(params.id as string)
+  const { userId } = useAuth()
+  const { user: clerkUser } = useUser()
   
   const [post, setPost] = useState<Post | null>(null)
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState("")
-  const [user, setUser] = useState(auth.currentUser)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [votes, setVotes] = useState({ upvotes: 0, downvotes: 0 })
   const [userVote, setUserVote] = useState<"up" | "down" | null>(null)
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      setUser(user)
-    })
-    return () => unsubscribeAuth()
-  }, [])
-
-  useEffect(() => {
     const loadPost = async () => {
-      const postSnap = await getDoc(doc(db, "posts", postId))
-      if (postSnap.exists()) {
-        const data = postSnap.data()
+      if (isNaN(postId)) {
+        setLoading(false)
+        return
+      }
+      
+      const dbPost = await getPostById(postId)
+      if (dbPost) {
+        const p = dbPost as any
         setPost({
-          id: postSnap.id,
-          ...data,
-          createdAt: data.createdAt?.toDate() || new Date(),
-        } as Post)
-        setVotes({ upvotes: data.upvotes, downvotes: data.downvotes })
+          id: p.id.toString(),
+          authorId: p.author_id,
+          authorName: p.author_name,
+          authorAvatar: p.author_avatar,
+          videoUrl: p.video_url,
+          embedUrl: p.embed_url,
+          thumbnailUrl: p.thumbnail_url,
+          platform: p.platform as "youtube" | "instagram",
+          mediaUrl: p.media_url,
+          mediaType: p.media_type as "image" | "video",
+          type: p.post_type as "embed" | "upload",
+          title: p.title,
+          tags: p.tags || [],
+          upvotes: p.upvotes,
+          downvotes: p.downvotes,
+          commentCount: p.comment_count,
+          createdAt: new Date(p.created_at),
+          hotScore: p.hot_score,
+        })
+        setVotes({ upvotes: p.upvotes, downvotes: p.downvotes })
       }
       setLoading(false)
     }
@@ -50,68 +64,44 @@ export default function PostPage() {
   }, [postId])
 
   useEffect(() => {
-    const q = query(
-      collection(db, "comments", postId, "comments"),
-      orderBy("createdAt", "desc")
-    )
+    if (isNaN(postId)) return
     
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setComments(snapshot.docs.map((doc) => {
-        const data = doc.data()
-        return {
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt?.toDate() || new Date(),
-        } as Comment
-      }))
-    })
-    
-    return () => unsubscribe()
+    const loadComments = async () => {
+      const dbComments = await getDbComments(postId)
+      setComments(dbComments.map((c: any) => ({
+        id: c.id.toString(),
+        postId: c.post_id,
+        userId: c.user_id,
+        username: c.username,
+        avatarUrl: c.avatar_url,
+        content: c.content,
+        createdAt: new Date(c.created_at),
+      })))
+    }
+    loadComments()
   }, [postId])
 
   const handleVote = async (type: "up" | "down") => {
-    if (!user || !post) return
+    if (!userId || !post) return
 
-    const voteId = `${user.uid}_${post.id}`
-    
     try {
-      const voteRef = doc(db, "votes", voteId)
-      const voteSnap = await getDoc(voteRef)
-      
-      if (voteSnap.exists()) {
-        const existingVote = voteSnap.data().type
-        if (existingVote === type) {
-          await deleteDoc(voteRef)
-          await updateDoc(doc(db, "posts", post.id), {
-            [type === "up" ? "upvotes" : "downvotes"]: increment(-1)
-          })
+      if (userVote === type) {
+        await unvotePost(postId, type)
+        await votePost(postId, type === "up" ? "down" : "up")
+        setVotes(prev => ({
+          ...prev,
+          [type === "up" ? "upvotes" : "downvotes"]: prev[type === "up" ? "upvotes" : "downvotes"] - 1
+        }))
+        setUserVote(null)
+      } else {
+        if (userVote) {
+          await unvotePost(postId, userVote)
           setVotes(prev => ({
             ...prev,
-            [type === "up" ? "upvotes" : "downvotes"]: prev[type === "up" ? "upvotes" : "downvotes"] - 1
+            [userVote === "up" ? "upvotes" : "downvotes"]: prev[userVote === "up" ? "upvotes" : "downvotes"] - 1
           }))
-          setUserVote(null)
-        } else {
-          await deleteDoc(voteRef)
-          await updateDoc(doc(db, "posts", post.id), {
-            [existingVote === "up" ? "upvotes" : "downvotes"]: increment(-1),
-            [type === "up" ? "upvotes" : "downvotes"]: increment(1)
-          })
-          setVotes(prev => ({
-            upvotes: prev.upvotes + (type === "up" ? 1 : -1) - (existingVote === "up" ? 1 : -1),
-            downvotes: prev.downvotes + (type === "down" ? 1 : -1) - (existingVote === "down" ? 1 : -1)
-          }))
-          setUserVote(type)
         }
-      } else {
-        await setDoc(voteRef, {
-          userId: user.uid,
-          postId: post.id,
-          type,
-          createdAt: new Date()
-        })
-        await updateDoc(doc(db, "posts", post.id), {
-          [type === "up" ? "upvotes" : "downvotes"]: increment(1)
-        })
+        await votePost(postId, type)
         setVotes(prev => ({
           ...prev,
           [type === "up" ? "upvotes" : "downvotes"]: prev[type === "up" ? "upvotes" : "downvotes"] + 1
@@ -125,23 +115,36 @@ export default function PostPage() {
 
   const handleComment = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user || !newComment.trim()) return
+    if (!userId || !newComment.trim()) return
 
     setSubmitting(true)
     try {
-      await addDoc(collection(db, "comments", postId, "comments"), {
-        userId: user.uid,
-        username: user.displayName || "Anonymous",
-        avatarUrl: user.photoURL || "/default-avatar.png",
-        content: newComment.trim(),
-        createdAt: new Date()
-      })
+      const dbUser = await getUserById(userId)
+      const user = dbUser as any
+      const username = user?.username || clerkUser?.username || "Anonymous"
+      const avatarUrl = user?.avatar_url || clerkUser?.imageUrl || "/default-avatar.png"
 
-      await updateDoc(doc(db, "posts", postId), {
-        commentCount: increment(1)
+      await createComment({
+        post_id: postId,
+        user_id: userId,
+        username,
+        avatar_url: avatarUrl,
+        content: newComment.trim(),
       })
 
       setNewComment("")
+      
+      // Reload comments
+      const dbComments = await getDbComments(postId)
+      setComments(dbComments.map((c: any) => ({
+        id: c.id.toString(),
+        postId: c.post_id,
+        userId: c.user_id,
+        username: c.username,
+        avatarUrl: c.avatar_url,
+        content: c.content,
+        createdAt: new Date(c.created_at),
+      })))
     } catch (error) {
       console.error("Comment error:", error)
     } finally {
@@ -175,6 +178,9 @@ export default function PostPage() {
   }
 
   const score = votes.upvotes - votes.downvotes
+  const isUpload = post.type === "upload"
+  const isVideo = isUpload && post.mediaType === "video"
+  const isImage = isUpload && post.mediaType === "image"
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
@@ -183,7 +189,7 @@ export default function PostPage() {
           <div className="w-16 flex flex-col items-center py-4 gap-2" style={{ backgroundColor: COLORS.muted }}>
             <button
               onClick={() => handleVote("up")}
-              disabled={!user}
+              disabled={!userId}
               className="p-1 rounded transition-colors disabled:opacity-50"
               style={{ color: userVote === "up" ? COLORS.primary : COLORS.textSecondary }}
             >
@@ -194,7 +200,7 @@ export default function PostPage() {
             </span>
             <button
               onClick={() => handleVote("down")}
-              disabled={!user}
+              disabled={!userId}
               className="p-1 rounded transition-colors disabled:opacity-50"
               style={{ color: userVote === "down" ? COLORS.primaryGold : COLORS.textSecondary }}
             >
@@ -204,7 +210,20 @@ export default function PostPage() {
 
           <div className="flex-1">
             <div className="aspect-video bg-black">
-              {post.platform === "youtube" ? (
+              {isImage ? (
+                <img
+                  src={post.mediaUrl || ""}
+                  alt={post.title}
+                  className="w-full h-full object-contain"
+                />
+              ) : isVideo ? (
+                <video
+                  src={post.mediaUrl}
+                  className="w-full h-full object-contain"
+                  controls
+                  poster={post.thumbnailUrl}
+                />
+              ) : post.platform === "youtube" ? (
                 <iframe
                   src={post.embedUrl}
                   className="w-full h-full"
@@ -213,7 +232,7 @@ export default function PostPage() {
                 />
               ) : (
                 <iframe
-                  src={`https://www.instagram.com/p/${post.videoUrl.split('/p/')[1]?.split('/')[0]}/embed`}
+                  src={`https://www.instagram.com/p/${post.videoUrl?.split('/p/')[1]?.split('/')[0]}/embed`}
                   className="w-full h-full"
                   allow="autoplay; encrypted-media"
                   allowFullScreen
@@ -260,10 +279,10 @@ export default function PostPage() {
           Comments ({comments.length})
         </h2>
 
-        {user ? (
+        {userId ? (
           <form onSubmit={handleComment} className="flex gap-3 mb-6">
             <img
-              src={user.photoURL || "/default-avatar.png"}
+              src={clerkUser?.imageUrl || "/default-avatar.png"}
               alt="You"
               className="w-10 h-10 rounded-full"
             />

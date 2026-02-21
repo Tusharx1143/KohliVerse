@@ -2,76 +2,70 @@
 
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
-import { db, auth } from "@/lib/firebase"
-import { doc, getDoc, collection, query, where, orderBy, limit, getDocs } from "firebase/firestore"
-import { onAuthStateChanged } from "firebase/auth"
-import { Post, User } from "@/lib/types"
+import { useAuth } from "@clerk/nextjs"
+import { Post } from "@/lib/types"
 import { COLORS } from "@/lib/constants"
 import { formatNumber, timeAgo } from "@/lib/utils"
+import { getUserById, getPosts } from "@/lib/db-utils"
 import VideoCard from "@/components/VideoCard"
 import Link from "next/link"
 import { Loader2, Trophy, Video, Settings } from "lucide-react"
 
 export default function ProfilePage() {
   const params = useParams()
-  const userId = params.id as string
+  const profileUserId = params.id as string
+  const { userId } = useAuth()
   
-  const [user, setUser] = useState<User | null>(null)
+  const [profileUser, setProfileUser] = useState<any>(null)
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
-  const [currentUser, setCurrentUser] = useState(auth.currentUser)
   const [activeTab, setActiveTab] = useState<"posts" | "stats">("posts")
-
-  useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user)
-    })
-    return () => unsubscribeAuth()
-  }, [])
 
   useEffect(() => {
     const loadProfile = async () => {
       setLoading(true)
       try {
-        const userSnap = await getDoc(doc(db, "users", userId))
-        if (userSnap.exists()) {
-          const data = userSnap.data()
-          setUser({
-            uid: userSnap.id,
-            ...data,
-            createdAt: data.createdAt?.toDate() || new Date(),
-          } as User)
+        const dbUser = await getUserById(profileUserId)
+        const user = dbUser as any
+        if (user) {
+          setProfileUser(user)
         } else {
-          setUser({
-            uid: userId,
+          setProfileUser({
+            id: profileUserId,
             username: "Unknown User",
-            email: "",
-            avatarUrl: "/default-avatar.png",
+            avatar_url: "/default-avatar.png",
             bio: "",
-            createdAt: new Date(),
-            totalVotesReceived: 0,
-            totalPosts: 0,
-            isSetupComplete: false,
-            role: "user",
+            created_at: new Date(),
+            total_votes_received: 0,
+            total_posts: 0,
           })
         }
 
-        const postsQuery = query(
-          collection(db, "posts"),
-          where("authorId", "==", userId),
-          orderBy("createdAt", "desc"),
-          limit(20)
-        )
-        const postsSnap = await getDocs(postsQuery)
-        const userPosts = postsSnap.docs.map((doc) => {
-          const data = doc.data()
-          return {
-            id: doc.id,
-            ...data,
-            createdAt: data.createdAt?.toDate() || new Date(),
-          } as Post
+        const dbPosts = await getPosts({
+          limit: 20,
+          authorId: profileUserId,
         })
-        setPosts(userPosts)
+
+        setPosts(dbPosts.map((p: any) => ({
+          id: p.id.toString(),
+          authorId: p.author_id,
+          authorName: p.author_name,
+          authorAvatar: p.author_avatar,
+          videoUrl: p.video_url,
+          embedUrl: p.embed_url,
+          thumbnailUrl: p.thumbnail_url,
+          platform: p.platform as "youtube" | "instagram",
+          mediaUrl: p.media_url,
+          mediaType: p.media_type as "image" | "video",
+          type: p.post_type as "embed" | "upload",
+          title: p.title,
+          tags: p.tags || [],
+          upvotes: p.upvotes,
+          downvotes: p.downvotes,
+          commentCount: p.comment_count,
+          createdAt: new Date(p.created_at),
+          hotScore: p.hot_score,
+        })))
       } catch (error) {
         console.error("Error loading profile:", error)
       } finally {
@@ -80,7 +74,7 @@ export default function ProfilePage() {
     }
 
     loadProfile()
-  }, [userId])
+  }, [profileUserId])
 
   if (loading) {
     return (
@@ -90,7 +84,7 @@ export default function ProfilePage() {
     )
   }
 
-  if (!user) {
+  if (!profileUser) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8 text-center">
         <h1 className="text-2xl font-bold text-white">User not found</h1>
@@ -98,21 +92,21 @@ export default function ProfilePage() {
     )
   }
 
-  const isOwnProfile = currentUser?.uid === userId
+  const isOwnProfile = userId === profileUserId
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <div className="rounded-xl border p-6 mb-6" style={{ backgroundColor: COLORS.card, borderColor: COLORS.border }}>
         <div className="flex items-start gap-6">
           <img
-            src={user.avatarUrl}
-            alt={user.username}
+            src={profileUser.avatar_url || "/default-avatar.png"}
+            alt={profileUser.username}
             className="w-24 h-24 rounded-full border-4"
             style={{ borderColor: COLORS.primary }}
           />
           <div className="flex-1">
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-white">{user.username}</h1>
+              <h1 className="text-2xl font-bold text-white">{profileUser.username}</h1>
               {isOwnProfile && (
                 <Link
                   href="/settings"
@@ -124,7 +118,7 @@ export default function ProfilePage() {
               )}
             </div>
             <p className="text-sm mt-1" style={{ color: COLORS.textSecondary }}>
-              Member since {user.createdAt.toLocaleDateString()}
+              Member since {new Date(profileUser.created_at).toLocaleDateString()}
             </p>
 
             <div className="flex items-center gap-6 mt-4">
@@ -142,7 +136,7 @@ export default function ProfilePage() {
               </div>
               <div className="text-center">
                 <div className="text-xl font-bold" style={{ color: COLORS.primary }}>
-                  {user.totalPosts || 0}
+                  {profileUser.total_posts || 0}
                 </div>
                 <div className="text-xs" style={{ color: COLORS.textSecondary }}>Submissions</div>
               </div>
@@ -209,7 +203,7 @@ export default function ProfilePage() {
               className="rounded-xl overflow-hidden border"
               style={{ backgroundColor: COLORS.card, borderColor: COLORS.border }}
             >
-              <img src={post.thumbnailUrl} alt={post.title} className="w-full aspect-video object-cover" />
+              <img src={post.thumbnailUrl || "/default-avatar.png"} alt={post.title} className="w-full aspect-video object-cover" />
               <div className="p-3">
                 <div className="text-sm font-medium text-white truncate">{post.title}</div>
                 <div className="flex items-center justify-between mt-2 text-xs" style={{ color: COLORS.textSecondary }}>

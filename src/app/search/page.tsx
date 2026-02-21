@@ -2,11 +2,10 @@
 
 import { useState, useEffect, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { db, auth } from "@/lib/firebase"
-import { collection, query, where, or, orderBy, limit, getDocs } from "firebase/firestore"
-import { Post, User } from "@/lib/types"
+import { Post } from "@/lib/types"
 import { DEFAULT_TAGS } from "@/lib/types"
 import { COLORS } from "@/lib/constants"
+import { searchPosts, getUserById } from "@/lib/db-utils"
 import VideoCard from "@/components/VideoCard"
 import { Search, Loader2, User as UserIcon } from "lucide-react"
 import Link from "next/link"
@@ -18,7 +17,7 @@ function SearchContent() {
   
   const [searchQuery, setSearchQuery] = useState(initialQuery)
   const [results, setResults] = useState<Post[]>([])
-  const [users, setUsers] = useState<User[]>([])
+  const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<"posts" | "users">("posts")
 
@@ -32,48 +31,32 @@ function SearchContent() {
     if (!q.trim()) return
     
     setLoading(true)
-    const searchTerm = q.toLowerCase().trim()
 
     try {
-      // Search posts by title or tags
-      const postsQuery = query(
-        collection(db, "posts"),
-        or(
-          where("title", ">=", searchTerm),
-          where("title", "<=", searchTerm + "\uf8ff"),
-          where("tags", "array-contains", searchTerm)
-        ),
-        orderBy("createdAt", "desc"),
-        limit(50)
-      )
-      const postsSnap = await getDocs(postsQuery)
-      const posts = postsSnap.docs.map(doc => {
-        const data = doc.data()
-        return {
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt?.toDate() || new Date(),
-        } as Post
-      })
-      setResults(posts)
+      const dbPosts = await searchPosts(q.trim())
+      setResults(dbPosts.map((p: any) => ({
+        id: p.id.toString(),
+        authorId: p.author_id,
+        authorName: p.author_name,
+        authorAvatar: p.author_avatar,
+        videoUrl: p.video_url,
+        embedUrl: p.embed_url,
+        thumbnailUrl: p.thumbnail_url,
+        platform: p.platform as "youtube" | "instagram",
+        mediaUrl: p.media_url,
+        mediaType: p.media_type as "image" | "video",
+        type: p.post_type as "embed" | "upload",
+        title: p.title,
+        tags: p.tags || [],
+        upvotes: p.upvotes,
+        downvotes: p.downvotes,
+        commentCount: p.comment_count,
+        createdAt: new Date(p.created_at),
+        hotScore: p.hot_score,
+      })))
 
-      // Search users by username
-      const usersQuery = query(
-        collection(db, "users"),
-        where("username", ">=", searchTerm),
-        where("username", "<=", searchTerm + "\uf8ff"),
-        limit(20)
-      )
-      const usersSnap = await getDocs(usersQuery)
-      const foundUsers = usersSnap.docs.map(doc => {
-        const data = doc.data()
-        return {
-          uid: doc.id,
-          ...data,
-          createdAt: data.createdAt?.toDate() || new Date(),
-        } as User
-      })
-      setUsers(foundUsers)
+      // For users, we'll skip for now as we don't have a search users function
+      setUsers([])
 
     } catch (error) {
       console.error("Search error:", error)
@@ -92,7 +75,6 @@ function SearchContent() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
-      {/* Search Input */}
       <form onSubmit={handleSearch} className="mb-6">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A0A0A0]" size={20} />
@@ -106,7 +88,6 @@ function SearchContent() {
         </div>
       </form>
 
-      {/* Quick Tags */}
       <div className="flex flex-wrap gap-2 mb-6">
         {DEFAULT_TAGS.slice(0, 8).map(tag => (
           <button
@@ -125,7 +106,6 @@ function SearchContent() {
 
       {initialQuery && (
         <>
-          {/* Results Tabs */}
           <div className="flex gap-4 mb-6 border-b border-[#2A2A2A]">
             <button
               onClick={() => setActiveTab("posts")}
@@ -149,7 +129,6 @@ function SearchContent() {
             </button>
           </div>
 
-          {/* Results */}
           {loading ? (
             <div className="flex justify-center py-12">
               <Loader2 className="animate-spin" size={32} style={{ color: COLORS.primary }} />
@@ -172,17 +151,17 @@ function SearchContent() {
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {users.map(user => (
                   <Link
-                    key={user.uid}
-                    href={`/profile/${user.uid}`}
+                    key={user.id}
+                    href={`/profile/${user.id}`}
                     className="flex flex-col items-center p-4 rounded-xl border border-[#2A2A2A] bg-[#1A1A1A] hover:border-[#E0301E] transition-colors"
                   >
                     <img
-                      src={user.avatarUrl || "/default-avatar.png"}
+                      src={user.avatar_url || "/default-avatar.png"}
                       alt={user.username}
                       className="w-16 h-16 rounded-full mb-2"
                     />
                     <span className="font-medium text-white text-sm">@{user.username}</span>
-                    <span className="text-xs text-[#A0A0A0]">{user.totalPosts} posts</span>
+                    <span className="text-xs text-[#A0A0A0]">{user.total_posts} posts</span>
                   </Link>
                 ))}
               </div>

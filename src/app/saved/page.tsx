@@ -2,51 +2,55 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { db, auth } from "@/lib/firebase"
-import { collection, query, where, getDocs, orderBy, doc, getDoc } from "firebase/firestore"
-import { onAuthStateChanged } from "firebase/auth"
+import { useAuth } from "@clerk/nextjs"
 import { Post } from "@/lib/types"
 import { COLORS } from "@/lib/constants"
+import { getSavedPosts, getPostById } from "@/lib/db-utils"
 import VideoCard from "@/components/VideoCard"
 import { Bookmark, Loader2 } from "lucide-react"
 
 export default function SavedPage() {
   const router = useRouter()
+  const { userId } = useAuth()
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState(auth.currentUser)
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.push("/")
-        return
-      }
-      setUser(user)
-      await loadSavedPosts(user.uid)
-    })
-    return () => unsubscribe()
-  }, [router])
+    if (!userId) {
+      router.push("/")
+      return
+    }
+    loadSavedPosts(userId)
+  }, [userId, router])
 
   const loadSavedPosts = async (userId: string) => {
     setLoading(true)
     try {
-      const savedQuery = query(
-        collection(db, "saves"),
-        where("userId", "==", userId),
-        orderBy("createdAt", "desc")
-      )
-      const savedSnap = await getDocs(savedQuery)
+      const savedPostIds = await getSavedPosts(userId)
       
-      const postsPromises = savedSnap.docs.map(async (saveDoc) => {
-        const postId = saveDoc.data().postId
-        const postDoc = await getDoc(doc(db, "posts", postId))
-        if (postDoc.exists()) {
-          const data = postDoc.data()
+      const postsPromises = savedPostIds.map(async (postId: number) => {
+        const post = await getPostById(postId)
+        if (post) {
+          const p = post as any
           return {
-            id: postDoc.id,
-            ...data,
-            createdAt: data.createdAt?.toDate() || new Date(),
+            id: p.id.toString(),
+            authorId: p.author_id,
+            authorName: p.author_name,
+            authorAvatar: p.author_avatar,
+            videoUrl: p.video_url,
+            embedUrl: p.embed_url,
+            thumbnailUrl: p.thumbnail_url,
+            platform: p.platform as "youtube" | "instagram",
+            mediaUrl: p.media_url,
+            mediaType: p.media_type as "image" | "video",
+            type: p.post_type as "embed" | "upload",
+            title: p.title,
+            tags: p.tags || [],
+            upvotes: p.upvotes,
+            downvotes: p.downvotes,
+            commentCount: p.comment_count,
+            createdAt: new Date(p.created_at),
+            hotScore: p.hot_score,
           } as Post
         }
         return null
