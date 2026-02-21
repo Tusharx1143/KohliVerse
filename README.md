@@ -1,5 +1,7 @@
 # 🔥 KohliVerse
 
+[![Deploy with Firebase](https://img.shields.io/badge/Deployed-Firebase-orange?style=for-the-badge&logo=firebase)](https://kohliverse-cc29a.web.app)
+
 <p align="center">
   <img src="https://img.shields.io/badge/RCB-Red-E0301E?style=for-the-badge&logo=cricket&logoColor=white" alt="RCB Colors">
   <img src="https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js">
