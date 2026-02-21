@@ -1,6 +1,6 @@
 # 🔥 KohliVerse
 
-[![Deploy with Firebase](https://img.shields.io/badge/Deployed-Firebase-orange?style=for-the-badge&logo=firebase)](https://kohliverse-cc29a.web.app)
+[![Deploy with Vercel](https://img.shields.io/badge/Deployed-Vercel-black?style=for-the-badge&logo=vercel)](https://kohliverse.vercel.app)
 
 <p align="center">
   <img src="https://img.shields.io/badge/RCB-Red-E0301E?style=for-the-badge&logo=cricket&logoColor=white" alt="RCB Colors">
