@@ -121,13 +121,18 @@ export default function SubmitPage() {
       const username = userData.username || user.displayName || "Anonymous"
       const avatarUrl = userData.avatarUrl || user.photoURL || "/default-avatar.png"
 
+      // Build embed URL based on platform
+      const embedUrl = platform === "youtube" 
+        ? `https://www.youtube.com/embed/${id}`
+        : `https://www.instagram.com/p/${id}/embed/`
+
       const postRef = await addDoc(collection(db, "posts"), {
         authorId: user.uid,
         authorName: username,
         authorAvatar: avatarUrl,
         videoUrl: url,
         videoUrlHash: urlHash,
-        embedUrl: `https://www.youtube.com/embed/${id}`,
+        embedUrl: embedUrl,
         thumbnailUrl: getThumbnailUrl(url),
         platform,
         title,

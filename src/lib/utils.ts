@@ -47,7 +47,7 @@ export function calculateHotScore(upvotes: number, downvotes: number, createdAt:
 
 export function extractVideoId(url: string): { platform: "youtube" | "instagram" | null; id: string | null } {
   const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
-  const instagramRegex = /(?:instagram\.com\/(?:p|reel|tv)\/)([a-zA-Z0-9_-]+)/
+  const instagramRegex = /instagram\.com\/(?:p|reel|tv)\/([a-zA-Z0-9_-]+)/
   
   const youtubeMatch = url.match(youtubeRegex)
   if (youtubeMatch) {
@@ -80,7 +80,7 @@ export function getThumbnailUrl(url: string): string {
   const { platform, id } = extractVideoId(url)
   
   if (platform === "youtube" && id) {
-    return `https://img.youtube.com/vi/${id}/maxresdefault.jpg`
+    return `https://img.youtube.com/vi/${id}/hqdefault.jpg`
   }
   
   if (platform === "instagram" && id) {

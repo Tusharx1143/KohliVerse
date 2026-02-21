@@ -213,7 +213,7 @@ export default function PostPage() {
                 />
               ) : (
                 <iframe
-                  src={post.embedUrl}
+                  src={`https://www.instagram.com/p/${post.videoUrl.split('/p/')[1]?.split('/')[0]}/embed`}
                   className="w-full h-full"
                   allow="autoplay; encrypted-media"
                   allowFullScreen
@@ -226,7 +226,14 @@ export default function PostPage() {
               
               <div className="flex items-center gap-3 mt-3 text-sm" style={{ color: COLORS.textSecondary }}>
                 <Link href={`/profile/${post.authorId}`} className="flex items-center gap-2 hover:underline">
-                  <img src={post.authorAvatar} alt={post.authorName} className="w-6 h-6 rounded-full" />
+                  <img 
+                    src={post.authorAvatar || "/default-avatar.png"} 
+                    alt={post.authorName} 
+                    className="w-6 h-6 rounded-full"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "/default-avatar.png"
+                    }}
+                  />
                   <span style={{ color: COLORS.primary }}>{post.authorName}</span>
                 </Link>
                 <span>•</span>
