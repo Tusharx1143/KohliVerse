@@ -47,9 +47,11 @@ export default function ProfilePage() {
             username: "Unknown User",
             email: "",
             avatarUrl: "/default-avatar.png",
+            bio: "",
             createdAt: new Date(),
             totalVotesReceived: 0,
             totalPosts: 0,
+            isSetupComplete: false,
           })
         }
 

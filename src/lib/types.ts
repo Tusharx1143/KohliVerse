@@ -3,9 +3,17 @@ export interface User {
   username: string
   email: string
   avatarUrl: string
+  bio: string
   createdAt: Date
   totalVotesReceived: number
   totalPosts: number
+  isSetupComplete: boolean
+  socialLinks?: {
+    facebook?: string
+    instagram?: string
+    twitter?: string
+  }
+  updatedAt?: Date
 }
 
 export interface Post {
