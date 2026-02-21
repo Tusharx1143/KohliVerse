@@ -46,7 +46,7 @@ export function calculateHotScore(upvotes: number, downvotes: number, createdAt:
 }
 
 export function extractVideoId(url: string): { platform: "youtube" | "instagram" | null; id: string | null } {
-  const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
+  const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|shorts\/)|youtu\.be\/)([^"&?\/\s]{11})/
   const instagramRegex = /instagram\.com\/(?:p|reel|tv)\/([a-zA-Z0-9_-]+)/
   
   const youtubeMatch = url.match(youtubeRegex)
